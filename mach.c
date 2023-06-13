@@ -90,8 +90,7 @@ int main(int argc, char **argv) {
         while(fgets(line, MAX_LINE_LENGTH + 2, machFileStream)) {
             pthread_t threadIDs[maxNumberOfThreads];    //array of thread id´s
 
-            if(strlen(line) == 1) {
-                //TODO: check maxium threads
+            if(strlen(line) == 1 || linesUntilEmptyLine >= maxNumberOfThreads) {
 
                 //wait for threads to finish and then restart for new block
                 
@@ -101,9 +100,19 @@ int main(int argc, char **argv) {
                 }
                 
                 P(blockSemaphore);          //waits until every thread has called its V()-function
-                linesUntilEmptyLine = 0;    //resets lines for new block
                 printf("Threads ready\n");
                 blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
+
+                //if we wait for threads because the maxium quantity of threads was reached, we still need to handle the current line -> solution: after wait is completed, start new thread with current line and then carry on like normal
+                if(linesUntilEmptyLine >= maxNumberOfThreads) {
+                    linesUntilEmptyLine = 0;    //resets lines for new block
+                    char *currentLine = strdup(line);
+                    pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine); 
+                    linesUntilEmptyLine += 1;
+                    continue;
+                }
+
+                linesUntilEmptyLine = 0;    //resets lines for new block
                 continue;                   //starts new block execution
             }else{
                 //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines
