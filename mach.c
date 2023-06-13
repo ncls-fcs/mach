@@ -148,15 +148,8 @@ int main(int argc, char **argv) {
             char *currentLine = strdup(line);
             pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine);
             
-
-            /*
-            for (int i = 0; i < linesUntilEmptyLine; i++) {
-                pthread_join(threadIDs[i], )
-            }
-            */
         }
         linesUntilEmptyLine += 1;
         
     }
-    //
 }
