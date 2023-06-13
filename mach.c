@@ -51,6 +51,10 @@ static void *lineThread(void *command) {
     return NULL;
 }
 
+static void *printThread(void *n) {
+    //will print anytime a new entry is available in queue. (P() before read/print statement)
+}
+
 int main(int argc, char **argv) {
 
     /*
