@@ -42,6 +42,7 @@ static int parse_positive_int_or_die(char *str) {
 }
 
 static void *lineThread(void *command) {
+    pthread_detach(pthread_self());
     //runs command, passes at the end its output to queue to be printed
     char *commandString = (char *)command;
     printf("%s", commandString);
@@ -83,57 +84,78 @@ int main(int argc, char **argv) {
 
     //int currentline = 0;
     int linesUntilEmptyLine = 0;
-    while(!feof(machFileStream)) {
-        //count the lines until an empty line and create a new semaphore with the negation of that value + 1 (semaphore will be used to indicate when all commands until that empty line have finished running) BUT maximum of max_threads 
-        blockSemaphore = semCreate(-maxNumberOfThreads);   //Semaphore that blocks execution of the next block until every thread has called its V()-function
+    blockSemaphore = semCreate(-maxNumberOfThreads);    //Semaphore that blocks execution of the next block until every thread has called its V()-function
+    if(!blockSemaphore) {
+        die("semCreate");
+    }
+    pthread_t threadIDs[maxNumberOfThreads];            //array of thread id´s
 
-        while(fgets(line, MAX_LINE_LENGTH + 2, machFileStream)) {
-            pthread_t threadIDs[maxNumberOfThreads];    //array of thread id´s
-
-            if(strlen(line) == 1 || linesUntilEmptyLine >= maxNumberOfThreads) {
-
-                //wait for threads to finish and then restart for new block
-                
-                /*remove "unused" semaphore blockades:*/
-                for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
-                    V(blockSemaphore);
-                }
-                
-                P(blockSemaphore);          //waits until every thread has called its V()-function
-                printf("Threads ready\n");
-                blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
-
-                //if we wait for threads because the maxium quantity of threads was reached, we still need to handle the current line -> solution: after wait is completed, start new thread with current line and then carry on like normal
-                if(linesUntilEmptyLine >= maxNumberOfThreads) {
-                    linesUntilEmptyLine = 0;    //resets lines for new block
-                    char *currentLine = strdup(line);
-                    pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine); 
-                    linesUntilEmptyLine += 1;
-                    continue;
-                }
-
-                linesUntilEmptyLine = 0;    //resets lines for new block
-                continue;                   //starts new block execution
-            }else{
-                //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines
-                char *currentLine = strdup(line);
-                pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine);
-                
-
-                //stop after each empty line/wait for processes have finished (proccesses will call V() function after completion. Need to wait with P() function until Semaphore is 1 again e.g all proccesses have finished)
-                /*
-                for (int i = 0; i < linesUntilEmptyLine; i++) {
-                    pthread_join(threadIDs[i], )
-                }
-                */
-            }
-            linesUntilEmptyLine += 1;
-        }
+    while(1) {
+        fgets(line, MAX_LINE_LENGTH + 2, machFileStream);
         //error handling for fgets
         if(ferror(machFileStream)) {
             perror("fgets");
             exit(EXIT_FAILURE);
+        }else if (feof(machFileStream)) {
+            //TODO: cleanup and memory free etc.
+            printf("EOF");
+            for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
+                V(blockSemaphore);
+            }
+            
+            P(blockSemaphore);          //waits until every thread has called its V()-function
+            printf("Threads ready\n");
+            break;
         }
+        
+
+        if(strlen(line) == 1) {
+            //stop after each empty line/wait for processes have finished (proccesses will call V() function after completion. Need to wait with P() function until Semaphore is 1 again i.e. all proccesses have finished)
+            //wait for threads to finish and then restart for new block
+            
+            /*remove "unused" semaphore blockades:*/
+            for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
+                V(blockSemaphore);
+            }
+            
+            P(blockSemaphore);          //waits until every thread has called its V()-function
+            printf("Threads ready\n");
+            blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
+            if(!blockSemaphore) {
+                die("semCreate");
+            }
+            linesUntilEmptyLine = 0;    //resets lines for new block
+            continue;                   //starts new block execution
+
+        }else if(linesUntilEmptyLine >= maxNumberOfThreads) {
+            V(blockSemaphore);          //calls V() one time that Semaphore is > 0 after every thread returned
+            P(blockSemaphore);          //waits until every thread has called its V()-function
+            printf("Threads ready\n");
+
+            //if we wait for threads because the maxium quantity of threads was reached, we still need to handle the current line -> solution: after wait is completed, start new thread with current line and then carry on like normal
+            
+            blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
+            if(!blockSemaphore) {
+                die("semCreate");
+            }
+            linesUntilEmptyLine = 0;    //resets lines for new block
+            char *currentLine = strdup(line);
+            pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine); 
+            linesUntilEmptyLine += 1;
+            continue;
+        }else{
+            //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines
+            char *currentLine = strdup(line);
+            pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine);
+            
+
+            /*
+            for (int i = 0; i < linesUntilEmptyLine; i++) {
+                pthread_join(threadIDs[i], )
+            }
+            */
+        }
+        linesUntilEmptyLine += 1;
         
     }
     //
