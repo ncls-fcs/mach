@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    int currentline = 0;
+    //int currentline = 0;
     int linesUntilEmptyLine = 0;
     while(!feof(machFileStream)) {
         //count the lines until an empty line and create a new semaphore with the negation of that value + 1 (semaphore will be used to indicate when all commands until that empty line have finished running) BUT maximum of max_threads 
