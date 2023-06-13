@@ -85,20 +85,25 @@ int main(int argc, char **argv) {
     int linesUntilEmptyLine = 0;
     while(!feof(machFileStream)) {
         //count the lines until an empty line and create a new semaphore with the negation of that value + 1 (semaphore will be used to indicate when all commands until that empty line have finished running) BUT maximum of max_threads 
+        blockSemaphore = semCreate(-maxNumberOfThreads);   //Semaphore that blocks execution of the next block until every thread has called its V()-function
+
         while(fgets(line, MAX_LINE_LENGTH + 2, machFileStream)) {
             pthread_t threadIDs[maxNumberOfThreads];    //array of thread id´s
-            blockSemaphore = semCreate(-maxNumberOfThreads);   //Semaphore that blocks execution of the next block until every thread has called its V()-function
 
-            if(strlen(line) == 0 || linesUntilEmptyLine >= maxNumberOfThreads) {
+            if(strlen(line) == 1) {
+                //TODO: check maxium threads
+
                 //wait for threads to finish and then restart for new block
+                
                 /*remove "unused" semaphore blockades:*/
                 for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
                     V(blockSemaphore);
                 }
                 
-                //TODO: Thread waiting
                 P(blockSemaphore);          //waits until every thread has called its V()-function
                 linesUntilEmptyLine = 0;    //resets lines for new block
+                printf("Threads ready\n");
+                blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
                 continue;                   //starts new block execution
             }else{
                 //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines

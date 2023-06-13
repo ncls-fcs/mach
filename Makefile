@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -pedantic -Wall -Werror -D_XOPEN_SOURCE=700
+CFLAGS = -std=c11 -pthread -pedantic -Wall -Werror -D_XOPEN_SOURCE=700
 
 .PHONY: all clean
 
@@ -11,8 +11,8 @@ clean:
 mach: mach.o
 	$(CC) $(CFLAGS) -o mach mach.o pub/run.o pub/sem.o
 
-queue.o:
+queue.o: queue.c
 	$(CC) $(CFLAGS) -c queue.c
 
-mach.o:
+mach.o: mach.c
 	$(CC) $(CFLAGS) -c mach.c
