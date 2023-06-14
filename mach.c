@@ -14,6 +14,9 @@
 #define MAX_LINE_LENGTH 4096
 
 SEM *blockSemaphore;
+int isEOF = 0;  //indicated if file is read completely (for writing thread)
+
+//TODO: wait for output thread and safely exit and deallocate (probably needs another semaphore so main waits for output thread to exit)
 
 static void die(const char *s) {
     perror(s);
@@ -69,6 +72,7 @@ static void *lineThread(void *command) {
 }
 
 static void *printThread(void *n) {
+    pthread_detach(pthread_self());     //TODO: let main wait for finished writing ( for example change to joined thread or some)
     //will print anytime a new entry is available in queue.
     char *cmd, *out;
     int flags;
@@ -82,8 +86,13 @@ static void *printThread(void *n) {
             printf("Running '%s' ...\n", cmd);
         }else if(flags == 2){
             printf("Completed '%s': \"%s\".\n", cmd, out);
+            free(out);
+            free(cmd);
         }else if(flags == -1){
             printf("Failure '%s'\n", cmd);
+        }
+        if(isEOF){
+            return NULL;
         }
     }
     return NULL;
@@ -167,6 +176,7 @@ int main(int argc, char **argv) {
             }
             
             waitForThreads();
+            semDestroy(blockSemaphore);
             blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
             if(!blockSemaphore) {
                 die("semCreate");
@@ -182,7 +192,7 @@ int main(int argc, char **argv) {
             waitForThreads();
 
             //if we wait for threads because the maxium quantity of threads was reached, we still need to handle the current line -> solution: after wait is completed, start new thread with current line and then carry on like normal
-            
+            semDestroy(blockSemaphore);
             blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
             if(!blockSemaphore) {
                 die("semCreate");
@@ -201,6 +211,14 @@ int main(int argc, char **argv) {
         linesUntilEmptyLine += 1;
         
     }
-    free(blockSemaphore);
+    isEOF = 1;
+
+    if(fclose(machFileStream)){
+        perror("fclose");
+        //main exits anyway
+    }
+    semDestroy(blockSemaphore);
+    queue_deinit();
+    free(line);
     return 0;
 }

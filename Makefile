@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -pthread -pedantic -Wall -Werror -D_XOPEN_SOURCE=700
+CFLAGS = -std=c11 -g -pthread -pedantic -Wall -Werror -D_XOPEN_SOURCE=700
 
 .PHONY: all clean
 
