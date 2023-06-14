@@ -53,6 +53,7 @@ static void *lineThread(void *command) {
 
 static void *printThread(void *n) {
     //will print anytime a new entry is available in queue. (P() before read/print statement)
+    return NULL;
 }
 
 int main(int argc, char **argv) {
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
     /*
     start output thread
     */
+    printThread(NULL);
 
     //parse argv
     if(argc != 3) {
