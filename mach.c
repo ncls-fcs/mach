@@ -5,6 +5,8 @@
 #include <string.h>
 #include <pthread.h>
 
+#include <unistd.h>
+
 #include "sem.h"
 #include "queue.h"
 #include "run.h"
@@ -42,26 +44,68 @@ static int parse_positive_int_or_die(char *str) {
 }
 
 static void *lineThread(void *command) {
+    //adds command to queue, runs command, passes its output to queue to be printed, then indicates being ready by calling V() on blockSemaphore
+
     pthread_detach(pthread_self());
-    //runs command, passes at the end its output to queue to be printed
     char *commandString = (char *)command;
-    printf("%s", commandString);
-    free(commandString);
+    //adds cmd to queue
+    if(queue_put(commandString, NULL, 1)){
+        //error in queue_put
+        perror("queue_put");
+        exit(EXIT_FAILURE);
+    }
+    //free(commandString);
+    char *out;
+    int output = run_cmd(commandString, &out);
+    if(output >= 0) {
+        queue_put(commandString, out, 2);
+    }else{
+        //Failure
+        queue_put(commandString, NULL, -1); 
+    }
+
     V(blockSemaphore);
     return NULL;
 }
 
 static void *printThread(void *n) {
-    //will print anytime a new entry is available in queue. (P() before read/print statement)
+    //will print anytime a new entry is available in queue.
+    char *cmd, *out;
+    int flags;
+    
+    while(1){
+        if (queue_get(&cmd, &out, &flags)) {
+            // error handling ...
+            printf("queue_get failed");
+        }
+        if(flags == 1) {
+            printf("Running '%s' ...\n", cmd);
+        }else if(flags == 2){
+            printf("Completed '%s': \"%s\".\n", cmd, out);
+        }else if(flags == -1){
+            printf("Failure '%s'\n", cmd);
+        }
+    }
     return NULL;
+    //TODO: free resources and wait for thread to end before main exits (thread_join)
 }
 
-int main(int argc, char **argv) {
+void waitForThreads() {
+    P(blockSemaphore);          //waits until every thread has called its V()-function
+    printf("Threads ready\n");
+}
 
+
+int main(int argc, char **argv) {
+    if(queue_init()) {
+        perror("queue_init");
+        exit(EXIT_FAILURE);
+    }
     /*
     start output thread
     */
-    printThread(NULL);
+    pthread_t printThreadID;
+    pthread_create(&printThreadID, NULL, &printThread, NULL);
 
     //parse argv
     if(argc != 3) {
@@ -88,7 +132,6 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    //int currentline = 0;
     int linesUntilEmptyLine = 0;
     blockSemaphore = semCreate(-maxNumberOfThreads);    //Semaphore that blocks execution of the next block until every thread has called its V()-function
     if(!blockSemaphore) {
@@ -109,8 +152,7 @@ int main(int argc, char **argv) {
                 V(blockSemaphore);
             }
             
-            P(blockSemaphore);          //waits until every thread has called its V()-function
-            printf("Threads ready\n");
+            waitForThreads();
             break;
         }
         
@@ -124,19 +166,20 @@ int main(int argc, char **argv) {
                 V(blockSemaphore);
             }
             
-            P(blockSemaphore);          //waits until every thread has called its V()-function
-            printf("Threads ready\n");
+            waitForThreads();
             blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
             if(!blockSemaphore) {
                 die("semCreate");
             }
             linesUntilEmptyLine = 0;    //resets lines for new block
             continue;                   //starts new block execution
-
-        }else if(linesUntilEmptyLine >= maxNumberOfThreads) {
+        }
+        //if not in empty line, remove trailing newline
+        line[strlen(line)-1] = '\0';
+        
+        if(linesUntilEmptyLine >= maxNumberOfThreads) {
             V(blockSemaphore);          //calls V() one time that Semaphore is > 0 after every thread returned
-            P(blockSemaphore);          //waits until every thread has called its V()-function
-            printf("Threads ready\n");
+            waitForThreads();
 
             //if we wait for threads because the maxium quantity of threads was reached, we still need to handle the current line -> solution: after wait is completed, start new thread with current line and then carry on like normal
             
@@ -149,13 +192,15 @@ int main(int argc, char **argv) {
             pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine); 
             linesUntilEmptyLine += 1;
             continue;
-        }else{
-            //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines
-            char *currentLine = strdup(line);
-            pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine);
-            
         }
+            
+        //read individual rows in file and start new thread for each row. also increment lineCounter to indicate already run lines
+        char *currentLine = strdup(line);
+        pthread_create(&threadIDs[linesUntilEmptyLine], NULL, &lineThread, currentLine);
+            
         linesUntilEmptyLine += 1;
         
     }
+    free(blockSemaphore);
+    return 0;
 }
