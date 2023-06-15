@@ -106,7 +106,6 @@ static void *printThread(void *n) {
 
 void waitForThreads() {
     P(blockSemaphore);          //waits until every thread has called its V()-function
-    printf("Threads ready\n");
 }
 
 
@@ -156,12 +155,9 @@ int main(int argc, char **argv) {
             perror("fgets");
             exit(EXIT_FAILURE);
         }else if (feof(machFileStream)) {
-            //TODO: cleanup and memory free etc.
-            printf("EOF");
             for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
                 V(blockSemaphore);
             }
-            
             waitForThreads();
             break;
         }
