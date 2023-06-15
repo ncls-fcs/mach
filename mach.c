@@ -13,8 +13,12 @@
 
 #define MAX_LINE_LENGTH 4096
 
-SEM *blockSemaphore;
-int isEOF = 0;  //indicated if file is read completely (for writing thread)
+#define TERMINATION_SIGNAL 0
+#define ERROR_SIGNAL -1
+#define RUNNING_SIGNAL 1
+#define COMPLETED_SIGNAL 2
+
+static SEM *blockSemaphore;
 
 //TODO: wait for output thread and safely exit and deallocate (probably needs another semaphore so main waits for output thread to exit)
 
@@ -52,7 +56,7 @@ static void *lineThread(void *command) {
     pthread_detach(pthread_self());
     char *commandString = (char *)command;
     //adds cmd to queue
-    if(queue_put(commandString, NULL, 1)){
+    if(queue_put(commandString, NULL, RUNNING_SIGNAL)){
         //error in queue_put
         perror("queue_put");
         exit(EXIT_FAILURE);
@@ -61,10 +65,10 @@ static void *lineThread(void *command) {
     char *out;
     int output = run_cmd(commandString, &out);
     if(output >= 0) {
-        queue_put(commandString, out, 2);
+        queue_put(commandString, out, COMPLETED_SIGNAL);
     }else{
         //Failure
-        queue_put(commandString, NULL, -1); 
+        queue_put(commandString, NULL, ERROR_SIGNAL); 
     }
 
     V(blockSemaphore);
@@ -72,31 +76,32 @@ static void *lineThread(void *command) {
 }
 
 static void *printThread(void *n) {
-    pthread_detach(pthread_self());     //TODO: let main wait for finished writing ( for example change to joined thread or some)
+    //TODO: let main wait for finished writing ( for example change to joined thread or some)
     //will print anytime a new entry is available in queue.
     char *cmd, *out;
     int flags;
     
     while(1){
         if (queue_get(&cmd, &out, &flags)) {
-            // error handling ...
-            printf("queue_get failed");
+            perror("queue_get");
+            exit(EXIT_FAILURE);
         }
-        if(flags == 1) {
+        if(flags == TERMINATION_SIGNAL) {
+            pthread_exit(NULL);
+        }
+
+        if(flags == RUNNING_SIGNAL) {
             printf("Running '%s' ...\n", cmd);
-        }else if(flags == 2){
+        }else if(flags == COMPLETED_SIGNAL){
             printf("Completed '%s': \"%s\".\n", cmd, out);
             free(out);
             free(cmd);
-        }else if(flags == -1){
+        }else if(flags == ERROR_SIGNAL){
             printf("Failure '%s'\n", cmd);
-        }
-        if(isEOF){
-            return NULL;
+            free(out);
+            free(cmd);
         }
     }
-    return NULL;
-    //TODO: free resources and wait for thread to end before main exits (thread_join)
 }
 
 void waitForThreads() {
@@ -135,11 +140,7 @@ int main(int argc, char **argv) {
     }
 
 
-    char *line = malloc(sizeof(char) * MAX_LINE_LENGTH + 1);
-    if(line == NULL) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    char line[MAX_LINE_LENGTH + 1];
 
     int linesUntilEmptyLine = 0;
     blockSemaphore = semCreate(-maxNumberOfThreads);    //Semaphore that blocks execution of the next block until every thread has called its V()-function
@@ -211,7 +212,9 @@ int main(int argc, char **argv) {
         linesUntilEmptyLine += 1;
         
     }
-    isEOF = 1;
+    //isEOF = 1;
+    queue_put(NULL, NULL, 0);           //indicate to printing task that the file ended and it should terminate (by putting signal into queue, main automatically also waits for queue to exit)
+    pthread_join(printThreadID, NULL);  //wait for printing thread to exit
 
     if(fclose(machFileStream)){
         perror("fclose");
@@ -219,6 +222,5 @@ int main(int argc, char **argv) {
     }
     semDestroy(blockSemaphore);
     queue_deinit();
-    free(line);
     return 0;
 }

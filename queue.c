@@ -59,7 +59,6 @@ int queue_put(char *cmd, char *out, int flags) {
 
 	lauf->next = NULL;
 
-	/* Einhaengen des neuen Elements */
 	if (schlepp == NULL) {
 		head = lauf;
 	} else {
