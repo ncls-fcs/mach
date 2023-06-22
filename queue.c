@@ -20,11 +20,17 @@ int queue_init(void) {
     if(!s) {
         //errno already set by semCreate;
         free(s);
+/*I----> +--------------------------------------------------------------------+
+         | nicht notwendig -> ist ja NULL                                     |
+         +-------------------------------------------------------------------*/
         return -1;
     }
     readyToWrite = semCreate(1);
     if(!readyToWrite) {
         //errno already set by semCreate;
+/*I----> +--------------------------------------------------------------------+
+         | hier fehlt ein free() von s, sonst Memory Leak (-1)                |
+         +-------------------------------------------------------------------*/
         free(readyToWrite);
         return -1;
     }
@@ -50,6 +56,10 @@ int queue_put(char *cmd, char *out, int flags) {
     lauf = malloc(sizeof(struct queueElement));
     if (lauf == NULL) {
         //TODO: errno = 
+/*I----> +--------------------------------------------------------------------+
+         | hier muss die Semaphore wieder freigegeben werden, sonst deadlock  |
+         | (-0.5)                                                             |
+         +-------------------------------------------------------------------*/
         return -1;
     }
 
@@ -58,6 +68,10 @@ int queue_put(char *cmd, char *out, int flags) {
     lauf->flags = flags;
 
     lauf->next = NULL;
+/*I----> +--------------------------------------------------------------------+
+         | die allokation des neuen Elements wäre auserhalb des kritischen    |
+         | Abschnitts besser, um diesen möglichst kurz zu halten              |
+         +-------------------------------------------------------------------*/
 
     if (schlepp == NULL) {
         head = lauf;
@@ -84,14 +98,27 @@ int queue_get(char **cmd, char **out, int *flags) {
         //remove from queue
         struct queueElement *tmp = head;    //save current element to free it later 
         head = head->next;                  //head either NULL if no further element was in queue (head->next would be NULL), or head is next element
+/*I----> +--------------------------------------------------------------------+
+         | auch hier ist noch Potential, den kritischen Abschnitt zu          |
+         | verkleinern, in dem man nur das Entfernen aus der Liste innerhalb  |
+         | dessen durchführt.                                                 |
+         +-------------------------------------------------------------------*/
         //free queue element
         free(tmp);
 
         V(readyToWrite);        //exiting critical area where queue might be changed
         return 0;
     }else{
+/*I----> +--------------------------------------------------------------------+
+         | das kann tatsächlich nicht sein, wäre also völlig ok, die if       |
+         | Abfrage wegzulassen.                                               |
+         +-------------------------------------------------------------------*/
         return -1;  //No element was in list despite it being indicated by semaphore (idk how that would even happen but error handling = good)
     }
 
 }
 
+
+/*P----> +--------------------------------------------------------------------+
+         | Punktabzug in dieser Datei: 1.5 Punkte                             |
+         +-------------------------------------------------------------------*/

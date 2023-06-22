@@ -69,6 +69,10 @@ static void *lineThread(void *command) {
     }else{
         //Failure
         queue_put(commandString, NULL, ERROR_SIGNAL); 
+/*I----> +--------------------------------------------------------------------+
+         | Fehler beim Ausführen sollten eigentlich vollständig ignoriert     |
+         | werden                                                             |
+         +-------------------------------------------------------------------*/
     }
 
     V(blockSemaphore);
@@ -92,12 +96,21 @@ static void *printThread(void *n) {
 
         if(flags == RUNNING_SIGNAL) {
             printf("Running '%s' ...\n", cmd);
+/*I----> +--------------------------------------------------------------------+
+         | Fehlerbehandlung printf fehlt (-0.5)                               |
+         +-------------------------------------------------------------------*/
         }else if(flags == COMPLETED_SIGNAL){
             printf("Completed '%s': \"%s\".\n", cmd, out);
+/*I----> +--------------------------------------------------------------------+
+         | Fehlerbehandlung printf fehlt (-0.5)                               |
+         +-------------------------------------------------------------------*/
             free(out);
             free(cmd);
         }else if(flags == ERROR_SIGNAL){
             printf("Failure '%s'\n", cmd);
+/*I----> +--------------------------------------------------------------------+
+         | Fehlerbehandlung printf fehlt (FF)                                 |
+         +-------------------------------------------------------------------*/
             free(out);
             free(cmd);
         }
@@ -150,6 +163,9 @@ int main(int argc, char **argv) {
 
     while(1) {
         fgets(line, MAX_LINE_LENGTH + 2, machFileStream);
+/*I      +---------------------------A---------------------------------------+
+         | 1 fgets bekommt immer die tatsächliche Größe des Puffers! (-0.5)   |
+         +-------------------------------------------------------------------*/
         //error handling for fgets
         if(ferror(machFileStream)) {
             perror("fgets");
@@ -164,6 +180,9 @@ int main(int argc, char **argv) {
         
 
         if(strlen(line) == 1) {
+/*I----> +--------------------------------------------------------------------+
+         | Achtung: Letzte Zeile muss kein '\n' enthalten! (-0.5)             |
+         +-------------------------------------------------------------------*/
             //stop after each empty line/wait for processes have finished (proccesses will call V() function after completion. Need to wait with P() function until Semaphore is 1 again i.e. all proccesses have finished)
             //wait for threads to finish and then restart for new block
             
@@ -175,6 +194,12 @@ int main(int argc, char **argv) {
             waitForThreads();
             semDestroy(blockSemaphore);
             blockSemaphore = semCreate(-maxNumberOfThreads);   //reset semaphore
+/*I----> +--------------------------------------------------------------------+
+         | das könnte man sich sparen, wenn man die Semaphore nicht auf       |
+         | -maxNumberOfThreads initialisiert, sondern auf maxNumberOfThreads  |
+         | und dann statt einmal, maxNumberOfThreads x P() aufruft. Danach    |
+         | wieder maxNumberOfThreads x V()                                    |
+         +-------------------------------------------------------------------*/
             if(!blockSemaphore) {
                 die("semCreate");
             }
@@ -221,3 +246,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+
+/*P----> +--------------------------------------------------------------------+
+         | Punktabzug in dieser Datei: 2.0 Punkte                             |
+         +-------------------------------------------------------------------*/
