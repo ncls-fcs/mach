@@ -40,30 +40,30 @@ int queue_put(char *cmd, char *out, int flags) {
     P(readyToWrite);        //entering critical write area
 
     struct queueElement *lauf = head;
-	struct queueElement *schlepp = NULL;
+    struct queueElement *schlepp = NULL;
 
-	while (lauf) {
-		schlepp = lauf;
-		lauf = lauf->next;
-	}
+    while (lauf) {
+        schlepp = lauf;
+        lauf = lauf->next;
+    }
 
-	lauf = malloc(sizeof(struct queueElement));
-	if (lauf == NULL) {
+    lauf = malloc(sizeof(struct queueElement));
+    if (lauf == NULL) {
         //TODO: errno = 
-		return -1;
-	}
+        return -1;
+    }
 
-	lauf->cmd = cmd;
+    lauf->cmd = cmd;
     lauf->out = out;
     lauf->flags = flags;
 
-	lauf->next = NULL;
+    lauf->next = NULL;
 
-	if (schlepp == NULL) {
-		head = lauf;
-	} else {
-		schlepp->next = lauf;
-	}
+    if (schlepp == NULL) {
+        head = lauf;
+    } else {
+        schlepp->next = lauf;
+    }
 
     V(readyToWrite);    //indicate completed write, next thread can add/read to/from queue
 
@@ -76,7 +76,7 @@ int queue_get(char **cmd, char **out, int *flags) {
     P(s);               //wait until an element is in list
     P(readyToWrite);    //entering critical area where queue might be changed
 
-	if(head) {
+    if(head) {
         //write to pointer
         *cmd = head->cmd;
         *out = head->out;
@@ -94,3 +94,4 @@ int queue_get(char **cmd, char **out, int *flags) {
     }
 
 }
+

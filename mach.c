@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
             //stop after each empty line/wait for processes have finished (proccesses will call V() function after completion. Need to wait with P() function until Semaphore is 1 again i.e. all proccesses have finished)
             //wait for threads to finish and then restart for new block
             
-            /*remove "unused" semaphore blockades:*/
+            /* remove "unused" semaphore blockades: */
             for (int i = 0; i < (maxNumberOfThreads - linesUntilEmptyLine) + 1; i++) {
                 V(blockSemaphore);
             }
@@ -220,3 +220,4 @@ int main(int argc, char **argv) {
     queue_deinit();
     return 0;
 }
+
