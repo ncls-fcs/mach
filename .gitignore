@@ -1,6 +1,7 @@
 pub/
 doc/
 nethack*/
-*.o
+queue.o
+mach.o
 *.gch
 mach

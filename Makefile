@@ -8,8 +8,8 @@ all: mach
 clean:
 	rm -f mach mach.o queue.o
 
-mach: mach.o queue.o
-	$(CC) $(CFLAGS) -o mach mach.o queue.o pub/run.o pub/sem.o
+mach: mach.o queue.o run.o sem.o
+	$(CC) $(CFLAGS) -o mach mach.o queue.o run.o sem.o
 
 queue.o: queue.c
 	$(CC) $(CFLAGS) -c queue.c
