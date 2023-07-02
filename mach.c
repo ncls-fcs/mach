@@ -7,9 +7,9 @@
 
 #include <unistd.h>
 
-#include "sem.h"
+#include "dep/sem.h"
 #include "queue.h"
-#include "run.h"
+#include "dep/run.h"
 
 #define MAX_LINE_LENGTH 4096
 
@@ -19,8 +19,6 @@
 #define COMPLETED_SIGNAL 2
 
 static SEM *blockSemaphore;
-
-//TODO: wait for output thread and safely exit and deallocate (probably needs another semaphore so main waits for output thread to exit)
 
 static void die(const char *s) {
     perror(s);

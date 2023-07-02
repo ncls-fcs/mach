@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include "queue.h"
-#include "sem.h"
+#include "dep/sem.h"
 
 static struct queueElement {
     char *cmd;

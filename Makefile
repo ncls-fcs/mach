@@ -9,7 +9,7 @@ clean:
 	rm -f mach mach.o queue.o
 
 mach: mach.o queue.o run.o sem.o
-	$(CC) $(CFLAGS) -o mach mach.o queue.o run.o sem.o
+	$(CC) $(CFLAGS) -o mach mach.o queue.o dep/run.o dep/sem.o
 
 queue.o: queue.c
 	$(CC) $(CFLAGS) -c queue.c
