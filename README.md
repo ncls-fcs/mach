@@ -7,7 +7,7 @@ This utility uses a semaphore (sem.h) and a code execution library (run.h) devel
 ```
 usage: mach <number of threads> <mach-file>
 ```
-The machfile should include commands to be executed that are each seperated by a newline. The utility will execute at most ```<number of threads>``` commands in parallel. Blocks of commands are separated by an empty line.
+The machfile should include commands to be executed that are each seperated by a newline. The utility will execute at most ```<number of threads>``` commands of a block in parallel. Blocks of commands are separated by an empty line.
 
 # Example machfile
 
