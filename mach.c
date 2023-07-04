@@ -74,7 +74,6 @@ static void *lineThread(void *command) {
 }
 
 static void *printThread(void *n) {
-    //TODO: let main wait for finished writing ( for example change to joined thread or some)
     //will print anytime a new entry is available in queue.
     char *cmd, *out;
     int flags;
